@@ -1,0 +1,8 @@
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/loopd.db
+frontend/node_modules/
+frontend/dist/
+.env
+.DS_Store
