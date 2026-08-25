@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import AuthPage from './pages/AuthPage'
 
 const CATEGORIES = [
   'World',
@@ -133,7 +134,7 @@ function TrendingTab({ trending }) {
     <div className="trending-tab">
       <div className="search-input-locked">
         <span>Search articles</span>
-        <span className="locked-pill">Sign in to search</span>
+        <span className="locked-pill">Phase 8</span>
       </div>
 
       <h2 className="section-title">Trending Now</h2>
@@ -166,6 +167,25 @@ function LockedTab({ label }) {
     <div className="locked-tab">
       <p className="locked-title">{label}</p>
       <p className="locked-text">Sign in to unlock this</p>
+    </div>
+  )
+}
+
+function ProfileView({ username, onLogout }) {
+  return (
+    <div className="profile-view">
+      <div className="profile-header">
+        <p className="profile-username">@{username}</p>
+        <p className="profile-label">Logged in</p>
+        <button className="logout-button" onClick={onLogout}>
+          Logout
+        </button>
+      </div>
+
+      <div className="locked-tab">
+        <p className="locked-title">Echo Chamber Score</p>
+        <p className="locked-text">Coming in Phase 9</p>
+      </div>
     </div>
   )
 }
@@ -240,6 +260,11 @@ function App() {
   const [activeTab, setActiveTab] = useState('home')
   const [trending, setTrending] = useState([])
   const [clusters, setClusters] = useState([])
+  
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [username, setUsername] = useState('')
+  const [token, setToken] = useState('')
 
   const today = new Date().toLocaleDateString(undefined, {
     day: '2-digit',
@@ -247,6 +272,35 @@ function App() {
     year: 'numeric',
   })
 
+  // Check if user is already logged in (on component mount)
+  useEffect(() => {
+    const savedToken = localStorage.getItem('token')
+    const savedUsername = localStorage.getItem('username')
+    if (savedToken && savedUsername) {
+      setToken(savedToken)
+      setUsername(savedUsername)
+      setIsAuthenticated(true)
+    }
+  }, [])
+
+  // Handle auth success (signup or login)
+  const handleAuthSuccess = (newToken, newUsername) => {
+    setToken(newToken)
+    setUsername(newUsername)
+    setIsAuthenticated(true)
+  }
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('username')
+    setToken('')
+    setUsername('')
+    setIsAuthenticated(false)
+    setActiveTab('home')
+  }
+
+  // Fetch articles
   useEffect(() => {
     fetch('http://localhost:8000/articles')
       .then((res) => {
@@ -263,6 +317,7 @@ function App() {
       })
   }, [])
 
+  // Fetch trending
   useEffect(() => {
     fetch('http://localhost:8000/trending')
       .then((res) => res.json())
@@ -270,12 +325,18 @@ function App() {
       .catch((err) => console.error(err))
   }, [])
 
+  // Fetch timeline clusters
   useEffect(() => {
     fetch('http://localhost:8000/timeline')
       .then((res) => res.json())
       .then((data) => setClusters(data))
       .catch((err) => console.error(err))
   }, [])
+
+  // Show auth page if not logged in
+  if (!isAuthenticated) {
+    return <AuthPage onAuthSuccess={handleAuthSuccess} />
+  }
 
   return (
     <div className="app-shell">
@@ -297,7 +358,7 @@ function App() {
       {activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} />}
       {activeTab === 'search' && <TrendingTab trending={trending} />}
       {activeTab === 'bookmarks' && <LockedTab label="Bookmarks" />}
-      {activeTab === 'profile' && <LockedTab label="Profile" />}
+      {activeTab === 'profile' && <ProfileView username={username} onLogout={handleLogout} />}
 
       <nav className="bottom-nav">
         <button className={activeTab === 'home' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('home')}>Home</button>

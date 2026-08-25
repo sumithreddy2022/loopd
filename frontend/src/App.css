@@ -1286,3 +1286,199 @@ a {
 .modal-headline { display: block; padding: 10px 0; border-bottom: 1px solid #eee; text-decoration: none; color: #111; }
 .modal-source { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #999; margin-bottom: 2px; }
 .modal-close { margin-top: 12px; width: 100%; padding: 10px; border: none; border-radius: 8px; background: #111; color: #fff; cursor: pointer; }
+
+
+/* ================================
+   AUTH PAGE
+================================ */
+
+.auth-container {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg);
+  padding: 20px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px 30px;
+  text-align: center;
+}
+
+.auth-title {
+  margin: 0 0 4px;
+  font-family: 'Fraunces', serif;
+  font-size: 44px;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.auth-subtitle {
+  margin: 0 0 30px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.form-group input {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: white;
+  transition: border-color 200ms ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-ink);
+}
+
+.form-group input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-error {
+  margin: 0;
+  padding: 12px 14px;
+  background: #ffeaea;
+  border: 1px solid #ffcccc;
+  border-radius: 8px;
+  color: #c1382b;
+  font-size: 13px;
+  text-align: center;
+}
+
+.auth-button {
+  padding: 14px 20px;
+  background: var(--accent-ink);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 200ms ease, transform 150ms ease;
+}
+
+.auth-button:hover:not(:disabled) {
+  background: #2a2d7a;
+  transform: translateY(-2px);
+}
+
+.auth-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-toggle {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.auth-toggle p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.toggle-button:hover {
+  color: #2a2d7a;
+}
+
+/* ================================
+   PROFILE TAB (logged in)
+================================ */
+
+.profile-view {
+  width: min(640px, calc(100% - 40px));
+  margin: 20px auto;
+  text-align: center;
+}
+
+.profile-header {
+  padding: 30px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.profile-username {
+  margin: 0 0 8px;
+  font-family: 'Fraunces', serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profile-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.logout-button {
+  padding: 12px 24px;
+  background: var(--accent-red);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 200ms ease;
+}
+
+.logout-button:hover {
+  background: #a12820;
+}
