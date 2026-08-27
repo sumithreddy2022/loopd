@@ -6,7 +6,7 @@ from fastapi import Header
 from auth import init_auth_db, create_user, verify_user, create_session, get_user_from_token
 
 from timeline import build_story_clusters, get_top_clusters, get_cluster_for_article
-from db import init_db, get_all_articles, save_articles
+from db import init_db, get_all_articles, is_bookmarked, save_articles
 from fetch import fetch_articles
 from analyze import find_similar_articles
 
@@ -216,3 +216,56 @@ def trigger_fetch():
         "deleted": deleted,
         "total_in_db": len(get_all_articles())
     }
+
+# ===== BOOKMARKS ENDPOINTS =====
+
+@app.post("/bookmarks")
+def add_bookmark(article_id: int, token: str):
+    user_id = get_user_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    success = add_bookmark(user_id, article_id)
+    if success:
+        return {"message": "Bookmarked", "article_id": article_id}
+    else:
+        raise HTTPException(status_code=400, detail="Already bookmarked")
+
+@app.delete("/bookmarks/{article_id}")
+def remove_bookmark_endpoint(article_id: int, token: str):
+    user_id = get_user_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    remove_bookmark(user_id, article_id)
+    return {"message": "Bookmark removed", "article_id": article_id}
+
+@app.get("/user/bookmarks")
+def get_bookmarks(token: str):
+    user_id = get_user_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    rows = get_user_bookmarks(user_id)
+    return [
+        {
+            "id": r[0],
+            "title": r[1],
+            "link": r[2],
+            "summary": r[3],
+            "published": r[4],
+            "category": r[5],
+            "source": r[6],
+            "image_url": r[7]
+        }
+        for r in rows
+    ]
+
+@app.get("/articles/{article_id}/is-bookmarked")
+def check_bookmark(article_id: int, token: str):
+    user_id = get_user_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    bookmarked = is_bookmarked(user_id, article_id)
+    return {"bookmarked": bookmarked, "article_id": article_id}
