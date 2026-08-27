@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom'
 import './App.css'
 import AuthPage from './pages/AuthPage'
 
@@ -58,47 +59,54 @@ function SpinCheckModal({ cluster, onClose }) {
   )
 }
 
-function ArticleCard({ article, cluster }) {
+function ArticleCard({ article, cluster, onClick }) {
   const [showSpinCheck, setShowSpinCheck] = useState(false)
 
   return (
-    <a className="article-card" href={article.link} target="_blank" rel="noreferrer">
-      {article.image_url ? (
-        <img className="article-card-image" src={article.image_url} alt="" loading="lazy" />
-      ) : (
-        <div className="article-card-placeholder"></div>
-      )}
+    <>
+      <button 
+        className="article-card" 
+        onClick={onClick}
+        style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'none' }}
+      >
+        {article.image_url ? (
+          <img className="article-card-image" src={article.image_url} alt="" loading="lazy" />
+        ) : (
+          <div className="article-card-placeholder"></div>
+        )}
 
-      <div className="article-card-overlay">
-        <div className="card-meta">
-          <span className="source">{article.source || getSource(article)}</span>
-          <span className="dot">•</span>
-          <span className="time">{timeAgo(article.published)}</span>
+        <div className="article-card-overlay">
+          <div className="card-meta">
+            <span className="source">{article.source || getSource(article)}</span>
+            <span className="dot">•</span>
+            <span className="time">{timeAgo(article.published)}</span>
+          </div>
+
+          <h2 className="headline">{article.title}</h2>
+
+          {article.summary && <p className="summary">{article.summary}</p>}
+
+          <div className="article-bottom">
+            <span className="source">{article.source || 'BBC.CO.UK'}</span>
+            <span className="read-link">READ MORE →</span>
+          </div>
         </div>
-
-        <h2 className="headline">{article.title}</h2>
-
-        {article.summary && <p className="summary">{article.summary}</p>}
-
-        <div className="article-bottom">
-          <span className="source">{article.source || 'BBC.CO.UK'}</span>
-          <span className="read-link">READ SOURCE →</span>
-        </div>
-      </div>
+      </button>
 
       {cluster && cluster.length > 1 && (
         <button
           className="spin-check-badge"
-          onClick={(e) => { e.preventDefault(); setShowSpinCheck(true) }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSpinCheck(true) }}
+          style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 10 }}
         >
-          Spin Check · {cluster.length} sources
+          {cluster.length} sources
         </button>
       )}
 
       {showSpinCheck && (
         <SpinCheckModal cluster={cluster} onClose={() => setShowSpinCheck(false)} />
       )}
-    </a>
+    </>
   )
 }
 
@@ -129,7 +137,7 @@ function CategoryGrid({ articles, onSelect }) {
   )
 }
 
-function TrendingTab({ trending }) {
+function TrendingTab({ trending, onArticleClick }) {
   return (
     <div className="trending-tab">
       <div className="search-input-locked">
@@ -143,19 +151,18 @@ function TrendingTab({ trending }) {
 
       <div className="trending-list">
         {trending.map((cluster, i) => (
-          <a
+          <button
             key={i}
             className="trending-item"
-            href={cluster[0].link}
-            target="_blank"
-            rel="noreferrer"
+            onClick={() => onArticleClick(cluster[0].id)}
+            style={{ cursor: 'pointer', border: 'none', background: 'none', padding: 0, textAlign: 'left', width: '100%' }}
           >
             <span className="trending-rank">{i + 1}</span>
             <div className="trending-content">
               <span className="trending-sources">{cluster.length} sources covering this</span>
               <h3 className="trending-headline">{cluster[0].title}</h3>
             </div>
-          </a>
+          </button>
         ))}
       </div>
     </div>
@@ -190,7 +197,7 @@ function ProfileView({ username, onLogout }) {
   )
 }
 
-function HomeTab({ articles, loading, clusters }) {
+function HomeTab({ articles, loading, clusters, onArticleClick }) {
   const [view, setView] = useState('feed')
   const [selectedCategory, setSelectedCategory] = useState(null)
 
@@ -224,7 +231,12 @@ function HomeTab({ articles, loading, clusters }) {
         <main className="category-feed">
           {filtered.length === 0 && <p className="status">No articles in this category yet.</p>}
           {filtered.map((article) => (
-            <ArticleCard key={article.id} article={article} cluster={clusterFor(article.id)} />
+            <ArticleCard 
+              key={article.id} 
+              article={article} 
+              cluster={clusterFor(article.id)}
+              onClick={() => onArticleClick(article.id)}
+            />
           ))}
         </main>
       </div>
@@ -247,17 +259,176 @@ function HomeTab({ articles, loading, clusters }) {
         )}
         {!loading &&
           articles.map((article) => (
-            <ArticleCard key={article.id} article={article} cluster={clusterFor(article.id)} />
+            <ArticleCard 
+              key={article.id} 
+              article={article} 
+              cluster={clusterFor(article.id)}
+              onClick={() => onArticleClick(article.id)}
+            />
           ))}
       </main>
     </>
   )
 }
 
+function MainApp({ articles, loading, clusters, trending, username, onLogout, today }) {
+  const [activeTab, setActiveTab] = useState('home')
+  const navigate = useNavigate()
+
+  const handleArticleClick = (articleId) => {
+    navigate(`/articles/${articleId}`)
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="masthead">
+        <div className="wordmark" aria-label="Loopd">
+          <span className="letter">L</span>
+          <span className="letter">o</span>
+          <span className="letter">o</span>
+          <span className="letter">p</span>
+          <span className="letter">d</span>
+        </div>
+        <div className="tagline-row">
+          <span className="tagline">{today}</span>
+          <span className="accent-dot" aria-hidden="true"></span>
+          <span className="tagline">news, every angle</span>
+        </div>
+      </header>
+
+      {activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} onArticleClick={handleArticleClick} />}
+      {activeTab === 'search' && <TrendingTab trending={trending} onArticleClick={handleArticleClick} />}
+      {activeTab === 'bookmarks' && <LockedTab label="Bookmarks" />}
+      {activeTab === 'profile' && <ProfileView username={username} onLogout={onLogout} />}
+
+      <nav className="bottom-nav">
+        <button className={activeTab === 'home' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('home')}>Home</button>
+        <button className={activeTab === 'search' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('search')}>Search</button>
+        <button className={activeTab === 'bookmarks' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('bookmarks')}>Bookmarks</button>
+        <button className={activeTab === 'profile' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('profile')}>Profile</button>
+      </nav>
+    </div>
+  )
+}
+
+function ArticleDetail({ articles, clusters, username, onLogout, today }) {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const articleId = parseInt(id)
+
+  const article = articles.find((a) => a.id === articleId)
+  const cluster = clusters.find((c) => c.some((a) => a.id === articleId)) || []
+
+  if (!article) {
+    return (
+      <div className="app-shell">
+        <header className="masthead">
+          <button className="back-link" onClick={() => navigate('/')} style={{ marginTop: '20px' }}>← Back to Feed</button>
+        </header>
+        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-secondary)' }}>Article not found</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="masthead">
+        <button 
+          className="back-link" 
+          onClick={() => navigate('/')}
+          style={{ marginTop: '20px' }}
+        >
+          ← Back to Feed
+        </button>
+      </header>
+
+      <article className="article-detail">
+        {/* Hero Image */}
+        <div className="article-detail-image">
+          {article.image_url ? (
+            <img src={article.image_url} alt={article.title} />
+          ) : (
+            <div className="article-card-placeholder"></div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="article-detail-content">
+          {/* Meta */}
+          <div className="article-detail-meta">
+            <span className="source">{article.source}</span>
+            <span className="dot">•</span>
+            <span className="time">{timeAgo(article.published)}</span>
+          </div>
+
+          {/* Title */}
+          <h1 className="article-detail-title">{article.title}</h1>
+
+          {/* Full Summary - 2-3 Paragraphs / 10-15 Lines */}
+          {article.summary && (
+            <div className="article-detail-full">
+              <p className="article-detail-summary">{article.summary}</p>
+              <p className="article-detail-description">
+                This story is developing across multiple news outlets. Each organization brings its own perspective and additional details to the narrative. Read the complete analysis below to understand the full context and implications of this news.
+              </p>
+              <p className="article-detail-extra">
+                By reviewing coverage from multiple sources, you can see how different outlets approach the same story, highlighting important nuances and variations in reporting. Click the button below to read the full article on {article.source}.
+              </p>
+            </div>
+          )}
+
+          {/* Read on Source Button */}
+          <a 
+            href={article.link} 
+            target="_blank" 
+            rel="noreferrer"
+            className="article-detail-button"
+          >
+            Read on {article.source}
+          </a>
+
+          {/* Spin Check - Related Stories */}
+          {cluster.length > 1 && (
+            <div className="article-detail-cluster">
+              <h2 className="cluster-title">How {cluster.length} sources covered this</h2>
+              <p className="cluster-subtitle">Compare headlines and angles</p>
+              
+              <div className="cluster-items">
+                {cluster.map((a) => (
+                  <a
+                    key={a.id}
+                    href={a.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="cluster-card"
+                  >
+                    <div className="cluster-source">{a.source}</div>
+                    <div className="cluster-headline">{a.title}</div>
+                    <div className="cluster-time">{timeAgo(a.published)}</div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </article>
+
+      {/* Working Navigation */}
+      <nav className="bottom-nav">
+        <button className="nav-item" onClick={() => navigate('/')}>Home</button>
+        <button className="nav-item" onClick={() => navigate('/')}>Search</button>
+        <button className="nav-item" onClick={() => navigate('/')}>Bookmarks</button>
+        <button className="nav-item" onClick={() => navigate('/')}>Profile</button>
+      </nav>
+    </div>
+  )
+}
+
 function App() {
   const [articles, setArticles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('home')
   const [trending, setTrending] = useState([])
   const [clusters, setClusters] = useState([])
   
@@ -272,7 +443,7 @@ function App() {
     year: 'numeric',
   })
 
-  // Check if user is already logged in (on component mount)
+  // Check if user is already logged in
   useEffect(() => {
     const savedToken = localStorage.getItem('token')
     const savedUsername = localStorage.getItem('username')
@@ -283,7 +454,7 @@ function App() {
     }
   }, [])
 
-  // Handle auth success (signup or login)
+  // Handle auth success
   const handleAuthSuccess = (newToken, newUsername) => {
     setToken(newToken)
     setUsername(newUsername)
@@ -297,7 +468,6 @@ function App() {
     setToken('')
     setUsername('')
     setIsAuthenticated(false)
-    setActiveTab('home')
   }
 
   // Fetch articles
@@ -325,7 +495,7 @@ function App() {
       .catch((err) => console.error(err))
   }, [])
 
-  // Fetch timeline clusters
+  // Fetch clusters
   useEffect(() => {
     fetch('http://localhost:8000/timeline')
       .then((res) => res.json())
@@ -333,40 +503,41 @@ function App() {
       .catch((err) => console.error(err))
   }, [])
 
-  // Show auth page if not logged in
   if (!isAuthenticated) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />
   }
 
   return (
-    <div className="app-shell">
-      <header className="masthead">
-        <div className="wordmark" aria-label="Loopd">
-          <span className="letter">L</span>
-          <span className="letter">o</span>
-          <span className="letter">o</span>
-          <span className="letter">p</span>
-          <span className="letter">d</span>
-        </div>
-        <div className="tagline-row">
-          <span className="tagline">{today}</span>
-          <span className="accent-dot" aria-hidden="true"></span>
-          <span className="tagline">news, every angle</span>
-        </div>
-      </header>
-
-      {activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} />}
-      {activeTab === 'search' && <TrendingTab trending={trending} />}
-      {activeTab === 'bookmarks' && <LockedTab label="Bookmarks" />}
-      {activeTab === 'profile' && <ProfileView username={username} onLogout={handleLogout} />}
-
-      <nav className="bottom-nav">
-        <button className={activeTab === 'home' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('home')}>Home</button>
-        <button className={activeTab === 'search' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('search')}>Search</button>
-        <button className={activeTab === 'bookmarks' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('bookmarks')}>Bookmarks</button>
-        <button className={activeTab === 'profile' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('profile')}>Profile</button>
-      </nav>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route 
+          path="/" 
+          element={
+            <MainApp 
+              articles={articles} 
+              loading={loading} 
+              clusters={clusters} 
+              trending={trending} 
+              username={username} 
+              onLogout={handleLogout}
+              today={today}
+            />
+          } 
+        />
+        <Route 
+          path="/articles/:id" 
+          element={
+            <ArticleDetail 
+              articles={articles} 
+              clusters={clusters} 
+              username={username}
+              onLogout={handleLogout}
+              today={today}
+            />
+          } 
+        />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
