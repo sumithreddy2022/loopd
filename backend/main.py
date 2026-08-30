@@ -1,36 +1,32 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
-from fastapi import Header
-from auth import init_auth_db, create_user, verify_user, create_session, get_user_from_token
-
-from timeline import build_story_clusters, get_top_clusters, get_cluster_for_article
-from db import init_db, get_all_articles, is_bookmarked, save_articles
+from db import (
+    init_db, get_all_articles, save_articles, delete_old_articles,
+    add_bookmark, remove_bookmark, get_user_bookmarks, is_bookmarked
+)
 from fetch import fetch_articles
+from embeddings import get_embedding
 from analyze import find_similar_articles
+from timeline import build_story_clusters, get_top_clusters, get_cluster_for_article
+from auth import (
+    init_auth_db, create_user, verify_user, create_session, get_user_from_token
+)
 
+app = FastAPI()
 
-app = FastAPI(title="Loopd API", version="0.1.0")
-
-
-# Allow React frontend to communicate with FastAPI
+# ===== CORS SETUP =====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allow all origins (for local dev)
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# Create database/table when server starts
-init_db()
-
-init_auth_db()
-# =========================
-# MODELS
-# =========================
-
+# ===== MODELS =====
 class Article(BaseModel):
     id: int
     title: str
@@ -38,33 +34,37 @@ class Article(BaseModel):
     summary: Optional[str] = None
     published: Optional[str] = None
     category: Optional[str] = None
+    source: Optional[str] = None
     image_url: Optional[str] = None
 
 
-class SimilarPair(BaseModel):
-    title1: str
-    title2: str
-    score: float
+class SignUpRequest(BaseModel):
+    username: str
+    password: str
 
 
-# =========================
-# BASIC ROUTE
-# =========================
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
+
+# ===== INITIALIZATION =====
+@app.on_event("startup")
+async def startup_event():
+    init_db()
+    init_auth_db()
+
+
+# ===== ROOT =====
 @app.get("/")
 def root():
-    return {"message": "Loopd API is running"}
+    return {"message": "Loopd API running"}
 
 
-# =========================
-# ARTICLES
-# =========================
-
+# ===== ARTICLES ENDPOINTS =====
 @app.get("/articles", response_model=List[Article])
 def get_articles():
-
     rows = get_all_articles()
-
     return [
         Article(
             id=r[0],
@@ -82,13 +82,9 @@ def get_articles():
 
 @app.get("/articles/{article_id}", response_model=Article)
 def get_article(article_id: int):
-
     rows = get_all_articles()
-
     for r in rows:
-
         if r[0] == article_id:
-
             return Article(
                 id=r[0],
                 title=r[1],
@@ -96,131 +92,122 @@ def get_article(article_id: int):
                 summary=r[3],
                 published=r[4],
                 category=r[5],
-                image_url=r[6]
+                source=r[6],
+                image_url=r[7]
             )
-
-    raise HTTPException(
-        status_code=404,
-        detail="Article not found"
-    )
+    raise HTTPException(status_code=404, detail="Article not found")
 
 
-# =========================
-# FETCH NEW ARTICLES
-# =========================
-
-@app.post("/fetch")
-def trigger_fetch():
-
-    articles = fetch_articles()
-
-    save_articles(articles)
-
-    return {
-        "fetched": len(articles),
-        "total_in_db": len(get_all_articles())
-    }
-
-
-# =========================
-# SIMILAR ARTICLES
-# =========================
-
-@app.get("/similar", response_model=List[SimilarPair])
-def get_similar(threshold: float = 0.5):
-
-    pairs = find_similar_articles(threshold=threshold)
-
-    return [
-        SimilarPair(
-            title1=t1,
-            title2=t2,
-            score=float(s)
-        )
-        for t1, t2, s in pairs
-    ]
-
-
-# =========================
-# TIMELINE
-# =========================
-
-@app.get("/timeline", response_model=List[List[Article]])
-def get_timeline(threshold: float = 0.5):
-
-    return build_story_clusters(threshold=threshold)
-
-
-class Article(BaseModel):
-    id: int
-    title: str
-    link: str
-    summary: Optional[str] = None
-    published: Optional[str] = None
-    category: Optional[str] = None
-    source: Optional[str] = None
-    image_url: Optional[str] = None
-
-@app.get("/trending", response_model=List[List[Article]])
-def get_trending(limit: int = 5):
-    return get_top_clusters(limit=limit)
-
-@app.get("/articles/{article_id}/cluster", response_model=List[Article])
-def get_article_cluster(article_id: int):
-    return get_cluster_for_article(article_id)
-
-@app.get("/trending", response_model=List[List[Article]])
-def get_trending(limit: int = 5):
-    return get_top_clusters(limit=limit)
-
-@app.get("/articles/{article_id}/cluster", response_model=List[Article])
-def get_article_cluster(article_id: int):
-    return get_cluster_for_article(article_id)
-
-class SignupRequest(BaseModel):
-    username: str
-    password: str
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class AuthResponse(BaseModel):
-    token: str
-    username: str
-
-
-@app.post("/signup", response_model=AuthResponse)
-def signup(req: SignupRequest):
-    user_id = create_user(req.username, req.password)
-    if user_id is None:
-        raise HTTPException(status_code=400, detail="Username already taken")
-    token = create_session(user_id)
-    return AuthResponse(token=token, username=req.username)
-
-@app.post("/login", response_model=AuthResponse)
-def login(req: LoginRequest):
-    user_id = verify_user(req.username, req.password)
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    token = create_session(user_id)
-    return AuthResponse(token=token, username=req.username)
-
+# ===== FETCH ENDPOINT =====
 @app.post("/fetch")
 def trigger_fetch():
     articles = fetch_articles()
     save_articles(articles)
     deleted = delete_old_articles(days=7)
+    stored = get_all_articles()
     return {
-        "fetched": len(articles),
         "deleted": deleted,
-        "total_in_db": len(get_all_articles())
+        "total": len(stored)
     }
 
-# ===== BOOKMARKS ENDPOINTS =====
 
+# ===== SIMILARITY & CLUSTERING =====
+@app.get("/similar")
+def get_similar(threshold: float = 0.5):
+    pairs = find_similar_articles(threshold=threshold)
+    return pairs
+
+
+@app.get("/timeline", response_model=List[List[Article]])
+def get_timeline(threshold: float = 0.5):
+    clusters = build_story_clusters(threshold=threshold)
+    return [
+        [
+            Article(
+                id=a["id"],
+                title=a["title"],
+                link=a["link"],
+                summary=a["summary"],
+                published=a["published"],
+                category=a.get("category"),
+                source=a.get("source"),
+                image_url=a.get("image_url")
+            )
+            for a in cluster
+        ]
+        for cluster in clusters
+    ]
+
+
+@app.get("/trending", response_model=List[List[Article]])
+def get_trending(limit: int = 5):
+    clusters = get_top_clusters(limit=limit)
+    return [
+        [
+            Article(
+                id=a["id"],
+                title=a["title"],
+                link=a["link"],
+                summary=a["summary"],
+                published=a["published"],
+                category=a.get("category"),
+                source=a.get("source"),
+                image_url=a.get("image_url")
+            )
+            for a in cluster
+        ]
+        for cluster in clusters
+    ]
+
+
+@app.get("/articles/{article_id}/cluster", response_model=List[Article])
+def get_article_cluster(article_id: int, threshold: float = 0.5):
+    cluster = get_cluster_for_article(article_id, threshold=threshold)
+    return [
+        Article(
+            id=a["id"],
+            title=a["title"],
+            link=a["link"],
+            summary=a["summary"],
+            published=a["published"],
+            category=a.get("category"),
+            source=a.get("source"),
+            image_url=a.get("image_url")
+        )
+        for a in cluster
+    ]
+
+
+# ===== AUTH ENDPOINTS =====
+@app.post("/signup")
+def signup(request: SignUpRequest):
+    user_id = create_user(request.username, request.password)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    
+    token = create_session(user_id)
+    return {
+        "token": token,
+        "username": request.username
+    }
+
+
+@app.post("/login")
+def login(request: LoginRequest):
+    user_id = verify_user(request.username, request.password)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_session(user_id)
+    return {
+        "token": token,
+        "username": request.username
+    }
+
+
+# ===== BOOKMARKS ENDPOINTS =====
 @app.post("/bookmarks")
-def add_bookmark(article_id: int, token: str):
+def add_bookmark_endpoint(article_id: int, token: str):
     user_id = get_user_from_token(token)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -231,6 +218,7 @@ def add_bookmark(article_id: int, token: str):
     else:
         raise HTTPException(status_code=400, detail="Already bookmarked")
 
+
 @app.delete("/bookmarks/{article_id}")
 def remove_bookmark_endpoint(article_id: int, token: str):
     user_id = get_user_from_token(token)
@@ -239,6 +227,7 @@ def remove_bookmark_endpoint(article_id: int, token: str):
     
     remove_bookmark(user_id, article_id)
     return {"message": "Bookmark removed", "article_id": article_id}
+
 
 @app.get("/user/bookmarks")
 def get_bookmarks(token: str):
@@ -260,6 +249,7 @@ def get_bookmarks(token: str):
         }
         for r in rows
     ]
+
 
 @app.get("/articles/{article_id}/is-bookmarked")
 def check_bookmark(article_id: int, token: str):

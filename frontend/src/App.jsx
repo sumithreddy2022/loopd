@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom'
 import './App.css'
 import AuthPage from './pages/AuthPage'
+import { useEffect as useEffectBookmark } from 'react'
 
 const CATEGORIES = [
   'World',
@@ -59,56 +60,126 @@ function SpinCheckModal({ cluster, onClose }) {
   )
 }
 
-function ArticleCard({ article, cluster, onClick }) {
-  const [showSpinCheck, setShowSpinCheck] = useState(false)
+  function ArticleCard({ article, cluster, onClick , token, username }) {
+    const [showSpinCheck, setShowSpinCheck] = useState(false)
+    const [isBookmarked, setIsBookmarked] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  return (
-    <>
-      <button 
-        className="article-card" 
+    // Check bookmark status on mount
+    useEffectBookmark(() => {
+      if (token && username) {
+        fetch(`http://localhost:8000/articles/${article.id}/is-bookmarked?token=${token}`)
+          .then(res => res.json())
+          .then(data => setIsBookmarked(data.bookmarked))
+          .catch(err => console.error(err))
+      }
+    }, [article.id, token])
+
+      const toggleBookmark = async (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      if (!token || !username) {
+        alert('Please login to bookmark')
+        return
+      }
+
+      setLoading(true)
+
+      try {
+        if (isBookmarked) {
+          // Remove bookmark
+          await fetch(`http://localhost:8000/bookmarks/${article.id}?token=${token}`, {
+            method: 'DELETE'
+          })
+        } else {
+          // Add bookmark
+          await fetch(`http://localhost:8000/bookmarks?article_id=${article.id}&token=${token}`, {
+            method: 'POST'
+          })
+        }
+        setIsBookmarked(!isBookmarked)
+      } catch (err) {
+        console.error(err)
+      }
+      setLoading(false)
+    }
+
+    return (
+      <>
+        <div 
+    className="article-card" 
+    style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'none' }}
+  >
+    {article.image_url ? (
+      <img 
+        className="article-card-image" 
+        src={article.image_url} 
+        alt="" 
+        loading="lazy"
         onClick={onClick}
-        style={{ cursor: 'pointer', border: 'none', padding: 0, background: 'none' }}
+        style={{ cursor: 'pointer' }}
+      />
+    ) : (
+      <div 
+        className="article-card-placeholder"
+        onClick={onClick}
+        style={{ cursor: 'pointer' }}
+      ></div>
+    )}
+          <div className="article-card-overlay">
+            <div className="card-meta">
+              <span className="source">{article.source || getSource(article)}</span>
+              <span className="dot">•</span>
+              <span className="time">{timeAgo(article.published)}</span>
+            </div>
+
+            <h2 className="headline">{article.title}</h2>
+
+            {article.summary && <p className="summary">{article.summary}</p>}
+
+            <div className="article-bottom">
+    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <span className="source">{article.source || 'BBC.CO.UK'}</span>
+      <button onClick={toggleBookmark} 
+        onClickCapture={toggleBookmark}
+        style={{
+          background: 'none',
+          border: '1px solid rgba(255,255,255,0.5)',
+          color: isBookmarked ? '#ffd700' : 'white',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontSize: '11px',
+          cursor: loading ? 'wait' : 'pointer',
+          opacity: loading ? 0.6 : 1,
+          pointerEvents: 'auto'
+        }}
+        disabled={loading}
       >
-        {article.image_url ? (
-          <img className="article-card-image" src={article.image_url} alt="" loading="lazy" />
-        ) : (
-          <div className="article-card-placeholder"></div>
-        )}
-
-        <div className="article-card-overlay">
-          <div className="card-meta">
-            <span className="source">{article.source || getSource(article)}</span>
-            <span className="dot">•</span>
-            <span className="time">{timeAgo(article.published)}</span>
-          </div>
-
-          <h2 className="headline">{article.title}</h2>
-
-          {article.summary && <p className="summary">{article.summary}</p>}
-
-          <div className="article-bottom">
-            <span className="source">{article.source || 'BBC.CO.UK'}</span>
-            <span className="read-link">READ MORE →</span>
+        {isBookmarked ? '★ Saved' : '☆ Save'}
+      </button>
+    </div>
+    <span className="read-link">READ MORE →</span>
+  </div>
           </div>
         </div>
-      </button>
 
-      {cluster && cluster.length > 1 && (
-        <button
-          className="spin-check-badge"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSpinCheck(true) }}
-          style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 10 }}
-        >
-          {cluster.length} sources
-        </button>
-      )}
+        {cluster && cluster.length > 1 && (
+          <button
+            className="spin-check-badge"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSpinCheck(true) }}
+            style={{ position: 'absolute', bottom: '20px', right: '20px', zIndex: 10 }}
+          >
+            {cluster.length} sources
+          </button>
+        )}
 
-      {showSpinCheck && (
-        <SpinCheckModal cluster={cluster} onClose={() => setShowSpinCheck(false)} />
-      )}
-    </>
-  )
-}
+        {showSpinCheck && (
+          <SpinCheckModal cluster={cluster} onClose={() => setShowSpinCheck(false)} />
+        )}
+      </>
+    )
+  }
 
 function CategoryGrid({ articles, onSelect }) {
   const tileImage = (category) => {
@@ -137,7 +208,7 @@ function CategoryGrid({ articles, onSelect }) {
   )
 }
 
-function TrendingTab({ trending, onArticleClick }) {
+function TrendingTab({ trending, onArticleClick, token, username }) {
   return (
     <div className="trending-tab">
       <div className="search-input-locked">
@@ -197,7 +268,7 @@ function ProfileView({ username, onLogout }) {
   )
 }
 
-function HomeTab({ articles, loading, clusters, onArticleClick }) {
+function HomeTab({ articles, loading, clusters, onArticleClick , token, username }) {
   const [view, setView] = useState('feed')
   const [selectedCategory, setSelectedCategory] = useState(null)
 
@@ -232,11 +303,13 @@ function HomeTab({ articles, loading, clusters, onArticleClick }) {
           {filtered.length === 0 && <p className="status">No articles in this category yet.</p>}
           {filtered.map((article) => (
             <ArticleCard 
-              key={article.id} 
-              article={article} 
-              cluster={clusterFor(article.id)}
-              onClick={() => onArticleClick(article.id)}
-            />
+  key={article.id} 
+  article={article} 
+  cluster={clusterFor(article.id)}
+  onClick={() => onArticleClick(article.id)}
+  token={token}
+  username={username}
+/>
           ))}
         </main>
       </div>
@@ -264,6 +337,8 @@ function HomeTab({ articles, loading, clusters, onArticleClick }) {
               article={article} 
               cluster={clusterFor(article.id)}
               onClick={() => onArticleClick(article.id)}
+              token={token}
+              username={username}
             />
           ))}
       </main>
@@ -271,7 +346,58 @@ function HomeTab({ articles, loading, clusters, onArticleClick }) {
   )
 }
 
-function MainApp({ articles, loading, clusters, trending, username, onLogout, today }) {
+function BookmarksTab({ token, username, articles, clusters, onArticleClick }) {
+  const [bookmarks, setBookmarks] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+  if (token && username) {
+    fetch(`http://localhost:8000/user/bookmarks?token=${token}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return res.json()
+      })
+      .then(data => {
+        if (Array.isArray(data)) {
+          setBookmarks(data)
+        } else {
+          setBookmarks([])
+        }
+      })
+      .catch(err => {
+        console.error('Bookmarks fetch error:', err)
+        setBookmarks([])
+      })
+      .finally(() => setLoading(false))
+  }
+}, [token, username])
+
+  const clusterFor = (id) => clusters.find((c) => c.some((a) => a.id === id))
+
+  return (
+    <div className="bookmarks-tab">
+      <h2 className="section-title">Saved Articles</h2>
+
+      {loading && <p className="status">Loading bookmarks…</p>}
+      {!loading && bookmarks.length === 0 && <p className="status">No bookmarks yet. Save articles to read later!</p>}
+
+      <main className="reels-feed">
+        {bookmarks.map((article) => (
+          <ArticleCard 
+            key={article.id} 
+            article={article} 
+            cluster={clusterFor(article.id)}
+            onClick={() => onArticleClick(article.id)}
+            token={token}
+            username={username}
+          />
+        ))}
+      </main>
+    </div>
+  )
+}
+
+function MainApp({ articles, loading, clusters, trending, username, onLogout, today, token }) {
   const [activeTab, setActiveTab] = useState('home')
   const navigate = useNavigate()
 
@@ -296,9 +422,20 @@ function MainApp({ articles, loading, clusters, trending, username, onLogout, to
         </div>
       </header>
 
-      {activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} onArticleClick={handleArticleClick} />}
-      {activeTab === 'search' && <TrendingTab trending={trending} onArticleClick={handleArticleClick} />}
-      {activeTab === 'bookmarks' && <LockedTab label="Bookmarks" />}
+{activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} onArticleClick={handleArticleClick} token={token} username={username} />}      {activeTab === 'search' && <TrendingTab trending={trending} onArticleClick={handleArticleClick} />}
+      {activeTab === 'bookmarks' && (
+  token ? (
+    <BookmarksTab 
+      token={token} 
+      username={username} 
+      articles={articles} 
+      clusters={clusters} 
+      onArticleClick={handleArticleClick} 
+    />
+  ) : (
+    <LockedTab label="Bookmarks" />
+  )
+)}
       {activeTab === 'profile' && <ProfileView username={username} onLogout={onLogout} />}
 
       <nav className="bottom-nav">
@@ -521,6 +658,7 @@ function App() {
               username={username} 
               onLogout={handleLogout}
               today={today}
+              token={token}
             />
           } 
         />
