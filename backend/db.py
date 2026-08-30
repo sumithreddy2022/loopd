@@ -164,51 +164,37 @@ def init_db():
     conn.commit()
     conn.close()
 
-    def add_bookmark(user_id, article_id):
+    def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    try:
-        cursor.execute(
-            "INSERT INTO bookmarks (user_id, article_id, created_at) VALUES (?, ?, ?)",
-            (user_id, article_id, datetime.now(timezone.utc).isoformat())
-        )
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False  # Already bookmarked
-    finally:
-        conn.close()
 
-def remove_bookmark(user_id, article_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        "DELETE FROM bookmarks WHERE user_id = ? AND article_id = ?",
-        (user_id, article_id)
-    )
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS articles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            link TEXT UNIQUE NOT NULL,
+            summary TEXT,
+            published TEXT,
+            category TEXT,
+            image_url TEXT,
+            source TEXT
+        )
+    """)
+
+    # ... existing code ...
+
+    # ADD THIS NEW TABLE
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS bookmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            article_id INTEGER NOT NULL,
+            created_at TEXT,
+            UNIQUE(user_id, article_id),
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(article_id) REFERENCES articles(id)
+        )
+    """)
+
     conn.commit()
     conn.close()
-
-def get_user_bookmarks(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT a.* FROM articles a
-        JOIN bookmarks b ON a.id = b.article_id
-        WHERE b.user_id = ?
-        ORDER BY b.created_at DESC
-    """, (user_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    return rows
-
-def is_bookmarked(user_id, article_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT 1 FROM bookmarks WHERE user_id = ? AND article_id = ?",
-        (user_id, article_id)
-    )
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
