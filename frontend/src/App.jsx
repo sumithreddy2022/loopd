@@ -396,6 +396,83 @@ function BookmarksTab({ token, username, articles, clusters, onArticleClick }) {
     </div>
   )
 }
+function SearchTab({ articles, clusters, token, username, onArticleClick }) {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [results, setResults] = useState([])
+  const [searched, setSearched] = useState(false)
+
+  const handleSearch = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/search?q=${encodeURIComponent(searchQuery)}`)
+      const data = await response.json()
+      setResults(data)
+      setSearched(true)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const clusterFor = (id) => clusters.find((c) => c.some((a) => a.id === id))
+
+  return (
+  <div style={{ width: 'min(640px, calc(100% - 40px))', margin: '0 auto', padding: '0 20px' }}>
+    <h2 className="section-title">Search News</h2>
+
+      {/* Single search input */}
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+        <input
+          type="text"
+          placeholder="Search by title..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+          style={{
+            flex: 1,
+            padding: '10px 12px',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '14px'
+          }}
+        />
+        <button
+          onClick={handleSearch}
+          style={{
+            padding: '10px 20px',
+            background: 'var(--accent-ink)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '14px'
+          }}
+        >
+          Search
+        </button>
+      </div>
+
+      {/* Results */}
+      {searched && (
+        <>
+          <p className="status">{results.length} results found</p>
+          <main className="reels-feed">
+            {results.map((article) => (
+              <ArticleCard
+                key={article.id}
+                article={article}
+                cluster={clusterFor(article.id)}
+                onClick={() => onArticleClick(article.id)}
+                token={token}
+                username={username}
+              />
+            ))}
+          </main>
+        </>
+      )}
+    </div>
+  )
+}   
 
 function MainApp({ articles, loading, clusters, trending, username, onLogout, today, token }) {
   const [activeTab, setActiveTab] = useState('home')
@@ -422,7 +499,17 @@ function MainApp({ articles, loading, clusters, trending, username, onLogout, to
         </div>
       </header>
 
-{activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} onArticleClick={handleArticleClick} token={token} username={username} />}      {activeTab === 'search' && <TrendingTab trending={trending} onArticleClick={handleArticleClick} />}
+{activeTab === 'home' && <HomeTab articles={articles} loading={loading} clusters={clusters} onArticleClick={handleArticleClick} token={token} username={username} />}  
+
+{activeTab === 'search' && (
+  <SearchTab 
+    articles={articles} 
+    clusters={clusters} 
+    token={token} 
+    username={username}
+    onArticleClick={handleArticleClick}
+  />
+)}
       {activeTab === 'bookmarks' && (
   token ? (
     <BookmarksTab 

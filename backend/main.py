@@ -259,3 +259,39 @@ def check_bookmark(article_id: int, token: str):
     
     bookmarked = is_bookmarked(user_id, article_id)
     return {"bookmarked": bookmarked, "article_id": article_id}
+
+    # ===== SEARCH ENDPOINT =====
+
+@app.get("/search")
+def search_articles(q: str = "", category: str = "", source: str = ""):
+    rows = get_all_articles()
+    results = []
+    
+    for r in rows:
+        title = r[1].lower()
+        summary = (r[3] or "").lower()
+        article_category = (r[5] or "").lower()
+        article_source = (r[6] or "").lower()
+        
+        # Match keyword
+        keyword_match = (q.lower() in title or q.lower() in summary) if q else True
+        
+        # Match category
+        category_match = (category.lower() in article_category) if category else True
+        
+        # Match source
+        source_match = (source.lower() in article_source) if source else True
+        
+        if keyword_match and category_match and source_match:
+            results.append({
+                "id": r[0],
+                "title": r[1],
+                "link": r[2],
+                "summary": r[3],
+                "published": r[4],
+                "category": r[5],
+                "source": r[6],
+                "image_url": r[7]
+            })
+    
+    return results
