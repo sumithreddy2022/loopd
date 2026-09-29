@@ -249,7 +249,25 @@ function LockedTab({ label }) {
   )
 }
 
-function ProfileView({ username, onLogout }) {
+function ProfileView({ username, onLogout, token }) {
+  const [score, setScore] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (token) {
+      fetch(`http://localhost:8000/user/echo-chamber-score?token=${token}`)
+        .then(res => res.json())
+        .then(data => {
+          setScore(data)
+          setLoading(false)
+        })
+        .catch(err => {
+          console.error(err)
+          setLoading(false)
+        })
+    }
+  }, [token])
+
   return (
     <div className="profile-view">
       <div className="profile-header">
@@ -260,10 +278,110 @@ function ProfileView({ username, onLogout }) {
         </button>
       </div>
 
-      <div className="locked-tab">
-        <p className="locked-title">Echo Chamber Score</p>
-        <p className="locked-text">Coming in Phase 9</p>
-      </div>
+      {/* Echo Chamber Score Card */}
+      {loading ? (
+        <p className="status">Loading score...</p>
+      ) : score ? (
+        <div style={{
+          padding: '20px',
+          background: 'var(--surface)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          marginTop: '20px'
+        }}>
+          <h3 style={{
+            fontFamily: 'Fraunces, serif',
+            fontSize: '22px',
+            margin: '0 0 12px 0',
+            color: 'var(--text-primary)'
+          }}>
+            Echo Chamber Score
+          </h3>
+
+          {/* Score meter */}
+          <div style={{
+            fontSize: '32px',
+            fontWeight: '700',
+            color: score.score > 70 ? '#c1382b' : score.score > 50 ? '#ff9800' : '#35398c',
+            marginBottom: '8px'
+          }}>
+            {score.score}%
+          </div>
+
+          <p style={{
+            margin: '0 0 16px 0',
+            fontSize: '14px',
+            color: 'var(--text-secondary)'
+          }}>
+            {score.level}
+          </p>
+
+          {/* Opinion breakdown bar */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{
+              display: 'flex',
+              height: '24px',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              background: 'var(--surface-alt)'
+            }}>
+              <div style={{
+                width: `${score.left_percent}%`,
+                background: '#c1382b',
+                transition: 'width 300ms ease'
+              }} title={`Left: ${score.left_percent}%`} />
+              <div style={{
+                width: `${score.center_percent}%`,
+                background: '#d3d3d3',
+                transition: 'width 300ms ease'
+              }} title={`Center: ${score.center_percent}%`} />
+              <div style={{
+                width: `${score.right_percent}%`,
+                background: '#35398c',
+                transition: 'width 300ms ease'
+              }} title={`Right: ${score.right_percent}%`} />
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            fontSize: '12px',
+            marginBottom: '16px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', background: '#c1382b', borderRadius: '2px' }}></div>
+              <span>Left: {score.left_percent}%</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', background: '#d3d3d3', borderRadius: '2px' }}></div>
+              <span>Center: {score.center_percent}%</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '12px', background: '#35398c', borderRadius: '2px' }}></div>
+              <span>Right: {score.right_percent}%</span>
+            </div>
+          </div>
+
+          {/* Info */}
+          <p style={{
+            margin: '0',
+            fontSize: '13px',
+            color: 'var(--text-secondary)',
+            lineHeight: '1.5'
+          }}>
+            <strong>Bias:</strong> {score.dominant}<br/>
+            <strong>Articles rated:</strong> {score.total_rated}<br/>
+            <strong>Tip:</strong> {score.message}
+          </p>
+        </div>
+      ) : (
+        <div className="locked-tab">
+          <p className="locked-title">Echo Chamber Score</p>
+          <p className="locked-text">Rate articles to see your bias!</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -523,7 +641,7 @@ function MainApp({ articles, loading, clusters, trending, username, onLogout, to
     <LockedTab label="Bookmarks" />
   )
 )}
-      {activeTab === 'profile' && <ProfileView username={username} onLogout={onLogout} />}
+      {activeTab === 'profile' && <ProfileView username={username} onLogout={onLogout} token={token} />}  
 
       <nav className="bottom-nav">
         <button className={activeTab === 'home' ? 'nav-item active' : 'nav-item'} onClick={() => setActiveTab('home')}>Home</button>
