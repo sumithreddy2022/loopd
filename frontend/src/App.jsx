@@ -592,6 +592,93 @@ function SearchTab({ articles, clusters, token, username, onArticleClick }) {
   )
 }   
 
+function ShareCard({ article, onClose }) {
+  const [copied, setCopied] = useState(false)
+
+  const shareUrl = article.link
+  const shareTitle = article.title
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const shareToTwitter = () => {
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareTitle)}&url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    )
+  }
+
+  const shareToWhatsApp = () => {
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(shareTitle + ' ' + shareUrl)}`,
+      '_blank'
+    )
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <h3 className="modal-title">Share Article</h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+          <button
+            onClick={copyToClipboard}
+            style={{
+              padding: '12px 16px',
+              background: '#35398c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            {copied ? '✓ Copied!' : '📋 Copy Link'}
+          </button>
+
+          <button
+            onClick={shareToTwitter}
+            style={{
+              padding: '12px 16px',
+              background: '#1DA1F2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            𝕏 Share on Twitter
+          </button>
+
+          <button
+            onClick={shareToWhatsApp}
+            style={{
+              padding: '12px 16px',
+              background: '#25D366',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            💬 Share on WhatsApp
+          </button>
+        </div>
+
+        <button className="modal-close" onClick={onClose}>Close</button>
+      </div>
+    </div>
+  )
+}
+
 function MainApp({ articles, loading, clusters, trending, username, onLogout, today, token }) {
   const [activeTab, setActiveTab] = useState('home')
   const navigate = useNavigate()
@@ -657,6 +744,7 @@ function ArticleDetail({ articles, clusters, username, onLogout, today }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const articleId = parseInt(id)
+    const [showShare, setShowShare] = useState(false)
 
   const article = articles.find((a) => a.id === articleId)
   const cluster = clusters.find((c) => c.some((a) => a.id === articleId)) || []
@@ -731,6 +819,26 @@ function ArticleDetail({ articles, clusters, username, onLogout, today }) {
             Read on {article.source}
           </a>
 
+
+          {/* Share Button */}
+<button
+  onClick={() => setShowShare(true)}
+  style={{
+    marginLeft: '10px',
+    padding: '10px 20px',
+    background: '#ff9800',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '12px',
+    textTransform: 'uppercase'
+  }}
+>
+  📤 Share
+</button>
+
           {/* Spin Check - Related Stories */}
           {cluster.length > 1 && (
             <div className="article-detail-cluster">
@@ -764,6 +872,10 @@ function ArticleDetail({ articles, clusters, username, onLogout, today }) {
         <button className="nav-item" onClick={() => navigate('/')}>Bookmarks</button>
         <button className="nav-item" onClick={() => navigate('/')}>Profile</button>
       </nav>
+      
+      {showShare && (
+        <ShareCard article={article} onClose={() => setShowShare(false)} />
+      )}
     </div>
   )
 }
